@@ -3,7 +3,7 @@
 // 設定
 const config = {
     woffId: '_2Todd08o2jPGgjmr_9Teg', // 本番環境のWOFF ID
-    gasUrl: 'https://script.google.com/macros/s/AKfycbyL58-LDmfXvfXkYbj-LL9PPrnDZreH0RPg1-io0xgdNgICh30_VUBa1SZebAqk4hBxoA/exec'
+    gasUrl: 'https://script.google.com/macros/s/AKfycby5fRaVu5vISA3dvflBAaYXtWtBGXRyWt9HpWYlAiWbqqHzyBxSAt6vpWn6NuWFk8Gj/exec'
 };
 
 // グローバル変数
@@ -399,21 +399,23 @@ function loadDefaultOffices() {
 
 // イベントリスナーの設定
 function setupEventListeners() {
-    // 脱落理由の選択による表示切替
+    // 対象区分の切り替え
+    document.querySelectorAll('input[name="entryType"]').forEach(radio => {
+        radio.addEventListener('change', handleEntryTypeChange);
+    });
+
+    // 脱落理由の切り替え
     document.querySelectorAll('input[name="reason"]').forEach(radio => {
         radio.addEventListener('change', handleReasonChange);
     });
-    
+
     // 診断名で「その他」を選択した場合
-    document.getElementById('hospitalDiagnosis').addEventListener('change', function() {
+    document.getElementById('hospitalDiagnosis').addEventListener('change', () => {
         const otherDiv = document.getElementById('hospitalOtherDiagnosis');
-        if (this.value === 'その他') {
-            otherDiv.style.display = 'block';
-        } else {
-            otherDiv.style.display = 'none';
-        }
+        const diagnosis = document.getElementById('hospitalDiagnosis');
+        otherDiv.style.display = diagnosis.value === 'その他' ? 'block' : 'none';
     });
-    
+
     // リアルタイム検索機能
     try {
         setupUserAutocomplete();
@@ -421,37 +423,163 @@ function setupEventListeners() {
     } catch (autocompleteError) {
         console.error('[ERROR] オートコンプリート初期化エラー:', autocompleteError);
     }
-    
+
     // 送信ボタン
     document.getElementById('submitBtn').addEventListener('click', showConfirmModal);
-    
+
     // モーダルボタン
     document.getElementById('cancelBtn').addEventListener('click', closeModal);
     document.getElementById('confirmBtn').addEventListener('click', submitForm);
-    
+
     // エラーメッセージのクリア
     document.querySelectorAll('input, select, textarea').forEach(element => {
-        element.addEventListener('input', function() {
-            clearError(this);
-        });
-        element.addEventListener('change', function() {
-            clearError(this);
-        });
+        element.addEventListener('input', () => clearError(element));
+        element.addEventListener('change', () => clearError(element));
     });
+
+    const resumeDateInput = document.getElementById('resumeDate');
+    const contractEndCheckbox = document.getElementById('contractEnd');
+    if (resumeDateInput) {
+        resumeDateInput.addEventListener('input', clearFutureRequirementError);
+        resumeDateInput.addEventListener('change', clearFutureRequirementError);
+    }
+    if (contractEndCheckbox) {
+        contractEndCheckbox.addEventListener('change', clearFutureRequirementError);
+    }
+
+    handleEntryTypeChange();
+    updateConditionalSections();
+}
+
+function getEntryType() {
+    const selected = document.querySelector('input[name="entryType"]:checked');
+    return selected ? selected.value : 'existing';
+}
+
+function handleEntryTypeChange() {
+    const entryType = getEntryType();
+    const isNew = entryType === 'new';
+    const stopFields = ['stopDate', 'stopDiagnosis'];
+    const basicInfoSection = document.getElementById('basicInfoSection');
+    const reasonSection = document.getElementById('reasonSection');
+    const futureSection = document.getElementById('futureSection');
+    const officeGroup = document.getElementById('officeGroup');
+    const officeSelect = document.getElementById('office');
+    const resumeDateInput = document.getElementById('resumeDate');
+    const contractEndCheckbox = document.getElementById('contractEnd');
+
+    if (basicInfoSection) {
+        basicInfoSection.style.display = isNew ? '' : 'none';
+    }
+    if (reasonSection) {
+        reasonSection.style.display = isNew ? '' : 'none';
+    }
+    if (futureSection) {
+        futureSection.style.display = isNew ? 'none' : '';
+    }
+    if (officeGroup) {
+        officeGroup.style.display = isNew ? 'none' : '';
+    }
+    if (officeSelect) {
+        officeSelect.required = false;
+        if (!officeSelect.value && userOrganization) {
+            officeSelect.value = userOrganization;
+        }
+        clearError(officeSelect);
+    }
+
+    const reasonRadios = document.querySelectorAll('input[name="reason"]');
+    reasonRadios.forEach(radio => {
+        radio.disabled = !isNew;
+        if (!isNew) {
+            radio.checked = false;
+        }
+    });
+    if (isNew) {
+        const defaultReason = document.querySelector('input[name="reason"][value="hospital"]');
+        if (defaultReason && !document.querySelector('input[name="reason"]:checked')) {
+            defaultReason.checked = true;
+        }
+    } else {
+        const hospitalSection = document.getElementById('hospitalSection');
+        const stopSectionEl = document.getElementById('stopSection');
+        if (hospitalSection) hospitalSection.classList.remove('active');
+        if (stopSectionEl) stopSectionEl.classList.remove('active');
+    }
+
+    const disableStopFields = entryType === 'existing';
+    stopFields.forEach(id => {
+        const field = document.getElementById(id);
+        if (!field) return;
+        field.disabled = disableStopFields;
+        if (disableStopFields) {
+            field.value = '';
+            clearError(field);
+        }
+    });
+
+    if (isNew) {
+        if (resumeDateInput) {
+            resumeDateInput.value = '';
+        }
+        if (contractEndCheckbox) {
+            contractEndCheckbox.checked = false;
+        }
+    }
+
+    const userInput = document.getElementById('userName');
+    const suggestions = document.getElementById('userSuggestions');
+    const userHelpText = document.getElementById('userNameHelp');
+    if (userInput) {
+        if (isNew) {
+            userInput.placeholder = '利用者名を登録してください';
+            userInput.setAttribute('data-entry-type', 'new');
+            if (suggestions) {
+                suggestions.classList.remove('show');
+                suggestions.innerHTML = '';
+            }
+            if (userHelpText) {
+                userHelpText.textContent = '利用者名を登録してください';
+            }
+        } else {
+            userInput.placeholder = '利用者名を入力してください...';
+            userInput.setAttribute('data-entry-type', 'existing');
+            if (userHelpText) {
+                userHelpText.textContent = '漢字で入力してください';
+            }
+        }
+    }
+
+    clearFutureRequirementError();
+    updateConditionalSections();
+}
+
+function updateConditionalSections() {
+    const entryType = getEntryType();
+    const reasonInput = document.querySelector('input[name="reason"]:checked');
+    const hospitalSection = document.getElementById('hospitalSection');
+    const stopSection = document.getElementById('stopSection');
+
+    if (!hospitalSection || !stopSection) {
+        return;
+    }
+
+    if (reasonInput && reasonInput.value === 'hospital') {
+        hospitalSection.classList.add('active');
+    } else {
+        hospitalSection.classList.remove('active');
+    }
+
+    if (reasonInput && reasonInput.value === 'stop') {
+        stopSection.classList.add('active');
+    } else {
+        stopSection.classList.remove('active');
+    }
 }
 
 // 脱落理由変更時の処理
-function handleReasonChange(e) {
-    const hospitalSection = document.getElementById('hospitalSection');
-    const stopSection = document.getElementById('stopSection');
-    
-    if (e.target.value === 'hospital') {
-        hospitalSection.classList.add('active');
-        stopSection.classList.remove('active');
-    } else {
-        hospitalSection.classList.remove('active');
-        stopSection.classList.add('active');
-    }
+function handleReasonChange() {
+    updateConditionalSections();
 }
 
 // 自動補完機能の設定
@@ -461,6 +589,12 @@ function setupAutocomplete(inputId, suggestionsId, dataArray, nameField, subFiel
     let selectedIndex = -1;
     
     input.addEventListener('input', function() {
+        if (getEntryType() === 'new') {
+            suggestions.classList.remove('show');
+            suggestions.innerHTML = '';
+            selectedIndex = -1;
+            return;
+        }
         const value = this.value.toLowerCase();
         suggestions.innerHTML = '';
         selectedIndex = -1;
@@ -500,6 +634,9 @@ function setupAutocomplete(inputId, suggestionsId, dataArray, nameField, subFiel
     
     // キーボード操作
     input.addEventListener('keydown', function(e) {
+        if (getEntryType() === 'new') {
+            return;
+        }
         const items = suggestions.querySelectorAll('.suggestion-item');
         
         if (e.key === 'ArrowDown') {
@@ -556,12 +693,22 @@ function setupUserAutocomplete() {
     input.addEventListener('input', function() {
         const query = this.value.trim();
         
+        console.log('[HOSPITAL SEARCH] input changed', { query });
+
         // 前回の検索をキャンセル
         clearTimeout(searchTimeout);
         
         suggestions.innerHTML = '';
         selectedIndex = -1;
         
+        if (getEntryType() === 'new') {
+            suggestions.classList.remove('show');
+            suggestions.style.display = 'none';
+            currentSearchQuery = '';
+            isSearching = false;
+            return;
+        }
+
         // テキストが削除された場合は検索結果をクリア
         if (query.length < 2) {
             suggestions.classList.remove('show');
@@ -583,7 +730,7 @@ function setupUserAutocomplete() {
         // 検索シーケンス番号をインクリメント
         searchSequence++;
         const currentSequence = searchSequence;
-        
+
         // ローディング表示
         suggestions.innerHTML = '<div class="suggestion-loading">🔍 検索中...</div>';
         suggestions.classList.add('show');
@@ -752,9 +899,9 @@ function setupHospitalAutocomplete() {
                     action: 'searchHospitals',
                     query: query
                 });
-                
+
                 const requestUrl = `${config.gasUrl}?${params.toString()}`;
-                
+
                 const response = await fetch(requestUrl, {
                     method: 'GET',
                     mode: 'cors'
@@ -887,10 +1034,20 @@ function showError(element) {
     }
 }
 
+function clearFutureRequirementError() {
+    const futureError = document.getElementById('futureRequirementError');
+    if (futureError) {
+        futureError.classList.remove('show');
+    }
+}
+
 // バリデーション
 function validateForm() {
     let isValid = true;
-    
+
+    const entryType = getEntryType();
+    const isNew = entryType === 'new';
+
     // 必須項目のチェック
     const requiredFields = ['reportDate', 'userName'];
     requiredFields.forEach(fieldId => {
@@ -900,22 +1057,20 @@ function validateForm() {
             isValid = false;
         }
     });
-    
+
     // 事業所のチェック
-    const office = document.getElementById('office').value;
-    if (!office) {
-        alert('事業所が設定されていません');
+    const officeElement = document.getElementById('office');
+    if (officeElement && officeElement.offsetParent !== null && !officeElement.value) {
+        showError(officeElement);
         isValid = false;
     }
-    
+
     // 脱落理由の選択チェック
-    const reason = document.querySelector('input[name="reason"]:checked');
-    if (!reason) {
-        const radioGroup = document.querySelector('.radio-group');
-        showError(radioGroup);
+    const reason = isNew ? document.querySelector('input[name="reason"]:checked') : null;
+    if (isNew && !reason) {
         isValid = false;
     }
-    
+
     // 入院の場合の追加チェック
     if (reason && reason.value === 'hospital') {
         const hospitalFields = ['hospitalDate', 'hospitalName', 'hospitalDiagnosis'];
@@ -926,8 +1081,7 @@ function validateForm() {
                 isValid = false;
             }
         });
-        
-        // その他の診断名のチェック
+
         const diagnosis = document.getElementById('hospitalDiagnosis');
         if (diagnosis.value === 'その他') {
             const otherDiagnosis = document.getElementById('hospitalOtherDiagnosisText');
@@ -937,7 +1091,7 @@ function validateForm() {
             }
         }
     }
-    
+
     // 中止の場合の追加チェック
     if (reason && reason.value === 'stop') {
         const stopFields = ['stopDate', 'stopDiagnosis'];
@@ -949,7 +1103,23 @@ function validateForm() {
             }
         });
     }
-    
+
+    const futureError = document.getElementById('futureRequirementError');
+    if (entryType === 'existing') {
+        const resumeDate = document.getElementById('resumeDate').value;
+        const contractEnd = document.getElementById('contractEnd').checked;
+        if (!resumeDate && !contractEnd) {
+            if (futureError) {
+                futureError.classList.add('show');
+            }
+            isValid = false;
+        } else if (futureError) {
+            futureError.classList.remove('show');
+        }
+    } else if (futureError) {
+        futureError.classList.remove('show');
+    }
+
     return isValid;
 }
 
@@ -975,51 +1145,62 @@ function showConfirmModal() {
 function collectFormData() {
     const form = document.getElementById('hospitalReportForm');
     formData = Utils.formToObject(form);
-    
+
     // 手動で値を設定
-    formData.office = document.getElementById('office').value || userOrganization;
-    formData.reason = document.querySelector('input[name="reason"]:checked').value;
+    formData.entryType = getEntryType();
+    const officeValue = document.getElementById('office').value || userOrganization;
+    formData.office = officeValue;
+    const selectedReason = document.querySelector('input[name="reason"]:checked');
+    if (formData.entryType === 'existing') {
+        formData.reason = 'existing';
+    } else {
+        formData.reason = selectedReason ? selectedReason.value : '';
+    }
     formData.contractEnd = document.getElementById('contractEnd').checked;
+
+    if (formData.entryType === 'existing') {
+        formData.stopDate = '';
+        formData.stopDiagnosis = '';
+    }
 }
 
 // 確認内容生成
 function generateConfirmContent() {
-    const reason = formData.reason === 'hospital' ? '入院' : '中止';
-    const office = formData.office || userOrganization;
+    const entryType = formData.entryType || 'existing';
+
+    let html = '';
+    html += `<p><strong>報告者:</strong> ${formData.reporter}</p>`;
+    html += `<p><strong>報告日:</strong> ${Utils.formatDate(formData.reportDate)}</p>`;
+    html += `<p><strong>利用者名:</strong> ${formData.userName}</p>`;
     
-    let html = `
-        <p><strong>報告者:</strong> ${formData.reporter}</p>
-        <p><strong>事業所:</strong> ${office}</p>
-        <p><strong>報告日:</strong> ${Utils.formatDate(formData.reportDate)}</p>
-        <p><strong>利用者名:</strong> ${formData.userName}</p>
-        <p><strong>脱落理由:</strong> ${reason}</p>
-    `;
-    
-    if (formData.reason === 'hospital') {
-        html += `
-            <p><strong>入院日:</strong> ${Utils.formatDate(formData.hospitalDate)}</p>
-            <p><strong>入院先:</strong> ${formData.hospitalName}</p>
-            <p><strong>診断名:</strong> ${formData.hospitalDiagnosis === 'その他' ? formData.hospitalOtherDiagnosisText : formData.hospitalDiagnosis}</p>
-        `;
+    if (entryType === 'new') {
+        const reasonLabel = formData.reason === 'hospital' ? '入院' : '中止';
+        html += `<p><strong>報告理由:</strong> ${reasonLabel}</p>`;
+
+        if (formData.reason === 'hospital') {
+            html += `<p><strong>入院日:</strong> ${Utils.formatDate(formData.hospitalDate)}</p>`;
+            html += `<p><strong>入院先:</strong> ${formData.hospitalName}</p>`;
+            html += `<p><strong>診断名および理由:</strong> ${formData.hospitalDiagnosis === 'その他' ? formData.hospitalOtherDiagnosisText : formData.hospitalDiagnosis}</p>`;
+        } else if (formData.reason === 'stop') {
+            html += `<p><strong>中止日:</strong> ${Utils.formatDate(formData.stopDate)}</p>`;
+            html += `<p><strong>診断名および理由:</strong> ${formData.stopDiagnosis}</p>`;
+        }
     } else {
-        html += `
-            <p><strong>中止日:</strong> ${Utils.formatDate(formData.stopDate)}</p>
-            <p><strong>診断名:</strong> ${formData.stopDiagnosis}</p>
-        `;
+        html += `<p><strong>対象区分:</strong> 既存（入院中）</p>`;
     }
-    
+
     if (formData.resumeDate) {
         html += `<p><strong>退院日・再開日:</strong> ${Utils.formatDate(formData.resumeDate)}</p>`;
     }
-    
+
     if (formData.contractEnd) {
         html += `<p><strong>契約終了:</strong> はい</p>`;
     }
-    
+
     if (formData.remarks) {
         html += `<p><strong>備考:</strong><br>${formData.remarks.replace(/\n/g, '<br>')}</p>`;
     }
-    
+
     return html;
 }
 
@@ -1040,22 +1221,24 @@ async function submitForm() {
         formData.userId = WOFFManager.getUserId();
         formData.department = WOFFManager.getDepartment();
         
-        console.log('送信データ:', formData);
+        console.log('[INFO] submit payload prepared', formData);
         
         // GASに送信
+        console.log('[INFO] sending request to', config.gasUrl);
         const response = await fetch(config.gasUrl, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'text/plain;charset=UTF-8',
             },
             body: JSON.stringify({
                 action: 'submitHospitalReport',
                 data: formData
             })
         });
+        console.log('[INFO] response received', response.status, response.statusText);
         
         const result = await response.json();
-        console.log('GAS応答:', result);
+        console.log('[INFO] response json parsed', result);
         
         if (result.success) {
             // 成功時は結果画面へ遷移
@@ -1070,7 +1253,7 @@ async function submitForm() {
         }
         
     } catch (error) {
-        console.error('送信エラー:', error);
+        console.error('[ERROR] submit error object:', error);
         alert('送信に失敗しました。もう一度お試しください。\nエラー: ' + error.message);
         submitBtn.disabled = false;
         submitBtn.textContent = '送信する';
