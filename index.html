@@ -17,8 +17,8 @@
     <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
     <script>
         window.vConsole = new VConsole();
-        console.log('[SYSTEM] vConsole初期化完了 - 入退院報告フォーム 動的キャッシュバスター適用時刻:', new Date(window.cacheTimestamp).toISOString());
-
+        console.log('[SYSTEM] vConsole初期化完了 - 入退院報告 動的キャッシュバスター版', Date.now());
+        
         // 強制キャッシュクリア
         if ('caches' in window) {
             caches.keys().then(names => {
@@ -49,14 +49,14 @@
                             <label for="entryNew">新規利用者</label>
                         </div>
                     </div>
-                    <span class="help-text">新規を選択すると入退院管理シートに新しい行を追加します。</span>
+                    <span class="help-text">新規を選択すると入退院管理シートに新しい行を追加します</span>
                 </div>
             </div>
 
             <!-- 基本情報 -->
             <div class="form-section" id="basicInfoSection">
                 <h2>基本情報</h2>
-
+                
                 <div class="form-group">
                     <label>報告者</label>
                     <input type="text" id="reporter" name="reporter" readonly>
@@ -85,7 +85,7 @@
             <!-- 利用者情報 -->
             <div class="form-section">
                 <h2>利用者情報</h2>
-
+                
                 <div class="form-group">
                     <label class="required">利用者名</label>
                     <div class="autocomplete-container">
@@ -141,7 +141,7 @@
                             <option value="誤嚥性肺炎">誤嚥性肺炎</option>
                             <option value="肺炎">肺炎</option>
                             <option value="尿路感染">尿路感染</option>
-                            <option value="敗血症">敗血症</option>
+                            <option value="心不全">心不全</option>
                             <option value="消化器系疾患">消化器系疾患</option>
                             <option value="骨折">骨折</option>
                             <option value="その他">その他</option>
@@ -172,12 +172,12 @@
                 </div>
             </div>
 
-            <!-- 今後の予定 -->
+            <!-- 共通項目 -->
             <div class="form-section" id="futureSection">
                 <h2>今後の予定</h2>
-
+                
                 <div class="form-group">
-                    <label>退院日 または 再開日 <span class="optional-note">※任意入力</span></label>
+                    <label>退院日 または 再開日 <span class="optional-note">（任意入力）</span></label>
                     <input type="date" id="resumeDate" name="resumeDate">
                     <span class="help-text">予定がある場合のみ入力してください</span>
                 </div>
@@ -185,12 +185,12 @@
                 <div class="form-group">
                     <div class="checkbox-item">
                         <input type="checkbox" id="contractEnd" name="contractEnd" value="yes">
-                        <label for="contractEnd">契約終了とする <span class="optional-note">※任意入力</span></label>
+                        <label for="contractEnd">契約終了にする <span class="optional-note">（任意入力）</span></label>
                     </div>
-                    <span class="help-text">チェックすると該当利用者コードのM列が「契約終了」に更新されます</span>
+                    <span class="help-text">チェックすると該当利用者レコードのM列が「契約終了」に更新されます</span>
                 </div>
 
-                <p class="error-message" id="futureRequirementError">退院日または契約終了のチェックのどちらかを入力してください</p>
+                <p class="error-message" id="futureRequirementError">退院日または契約終了のいずれかを入力してください</p>
             </div>
         </form>
     </div>
@@ -207,7 +207,10 @@
         <div class="modal-content">
             <h3>送信内容の確認</h3>
             <div id="confirmContent">
-                <!-- 確認内容がここに表示されます -->
+                <!-- 確認内容がここに表示される -->
+            </div>
+            <div id="sendingMessage" style="display: none; color: #FF8F00; font-weight: 600; text-align: center; margin: 16px 0;">
+                送信中です。しばらくお待ちください…
             </div>
             <div class="modal-buttons">
                 <button type="button" class="btn-cancel" id="cancelBtn">修正する</button>
@@ -221,7 +224,7 @@
         <div class="modal-content">
             <h3>事業所を選択</h3>
             <div class="office-list" id="officeList">
-                <!-- 事業所一覧がここに表示されます -->
+                <!-- 事業所一覧がここに表示される -->
             </div>
             <div class="modal-buttons">
                 <button type="button" class="btn-cancel" id="cancelOfficeBtn">キャンセル</button>
@@ -237,4 +240,3 @@
     </script>
 </body>
 </html>
-
