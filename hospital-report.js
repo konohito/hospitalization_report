@@ -3,8 +3,8 @@
 // 設定
 const config = {
     woffId: '_2Todd08o2jPGgjmr_9Teg', // 本番環境のWOFF ID
-     gasUrl: 'https://script.google.com/macros/s/AKfycby5fRaVu5vISA3dvflBAaYXtWtBGXRyWt9HpWYlAiWbqqHzyBxSAt6vpWn6NuWFk8Gj/exec' // 村松検証用
-    // gasUrl: 'https://script.google.com/macros/s/AKfycbxs8lyQWVQ5OOKQsLXFO8arNG-TuavpaN5Nblk2ud7YsxF6dRz-NgVR75JdB7HSoFEl8Q/exec' // 本番用
+    // gasUrl: 'https://script.google.com/macros/s/AKfycby5fRaVu5vISA3dvflBAaYXtWtBGXRyWt9HpWYlAiWbqqHzyBxSAt6vpWn6NuWFk8Gj/exec' // 村松検証用
+     gasUrl: 'https://script.google.com/macros/s/AKfycbxs8lyQWVQ5OOKQsLXFO8arNG-TuavpaN5Nblk2ud7YsxF6dRz-NgVR75JdB7HSoFEl8Q/exec' // 本番用
     
 };
 
